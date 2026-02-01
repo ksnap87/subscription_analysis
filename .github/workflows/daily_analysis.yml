@@ -1,0 +1,61 @@
+name: Daily Subscription Competitor Analysis
+
+on:
+  schedule:
+    - cron: '0 23 * * *' # 매일 오전 8시 (KST) = 전날 23시 (UTC)
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: |
+        npm install
+        npx playwright install --with-deps chromium
+
+    - name: Run Scrapers & Analysis
+      run: node index.js
+      env:
+        CI: true
+
+    - name: Generate Reports
+      run: |
+        # 여기서는 node index.js가 report까지 생성한다고 가정, 
+        # 혹은 별도 report 생성 스크립트 실행
+        echo "Reports generated in reports/ directory"
+
+    - name: Send Email Report
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.MAIL_USERNAME }}
+        password: ${{ secrets.MAIL_PASSWORD }}
+        subject: "Daily Competitor Analysis Report - ${{ github.event.repository.name }}"
+        to: executive@samsung.com
+        from: Automation System
+        body: |
+          오늘의 경쟁사 분석 리포트가 생성되었습니다.
+          첨부파일을 확인해주세요.
+        attachments: reports/*.txt
+
+    - name: Commit/Push Data (Optional)
+      run: |
+        git config --global user.name 'Automated Bot'
+        git config --global user.email 'bot@noreply.github.com'
+        git add data/ reports/
+        git commit -m "Update competitor data $(date +'%Y-%m-%d')"
+        git push
