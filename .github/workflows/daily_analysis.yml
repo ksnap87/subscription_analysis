@@ -5,6 +5,10 @@ on:
     - cron: '0 23 * * *' # 매일 오전 8시 (KST) = 전날 23시 (UTC)
   workflow_dispatch: # 수동 실행 가능
 
+permissions:
+  contents: write
+
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
