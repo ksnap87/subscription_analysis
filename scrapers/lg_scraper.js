@@ -34,30 +34,50 @@ async function scrapeLG() {
             return data;
         });
 
-        // 2. Event Cards
-        const cardPromos = await page.evaluate(() => {
-            const items = [];
-            // Target specific card classes identified
-            const cards = document.querySelectorAll('.benefit-card-link, .event-card, a[href^="/benefits/"]');
+        // 2. Event Cards (Detailed Capture)
+        const promoItems = [];
+        const promoCards = await page.$$('.benefit-card-link, .event-card, .list-item'); // Get element handles
 
-            cards.forEach(card => {
-                // Heuristic: grab the largest text block as title
-                const textBlocks = card.innerText.split('\n').filter(t => t.trim().length > 0);
-                if (textBlocks.length > 0) {
-                    const title = textBlocks[0]; // Usually first line is title or status
-                    const sub = textBlocks.slice(1).join(' ');
-                    items.push({ title, subtitle: sub, type: 'Card' });
-                }
-            });
-            return items;
-        });
+        console.log(`LG: Found ${promoCards.length} potential promo cards. Processing top 5...`);
 
-        // Merge and Dedupe
-        const allPromos = [...heroPromos, ...cardPromos];
-        // Unique by title
-        data.promotions = Array.from(new Map(allPromos.map(item => [item.title, item])).values());
+        // Loop through top 5 cards for detailed screenshot & text
+        for (let i = 0; i < Math.min(promoCards.length, 5); i++) {
+            const card = promoCards[i];
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
-        console.log(`LG: Found ${data.promotions.length} promotions.`);
+            try {
+                // Scroll into view
+                await card.scrollIntoViewIfNeeded();
+                await page.waitForTimeout(500);
+
+                // Extract Text
+                const textData = await card.evaluate(el => {
+                    const title = el.querySelector('.tit, .title, strong')?.innerText?.trim() ||
+                        el.innerText.split('\n')[0];
+                    const desc = el.querySelector('.desc, .date, .sub-text')?.innerText?.trim() || '';
+                    const link = el.getAttribute('href') || el.querySelector('a')?.getAttribute('href') || '';
+                    return { title, desc, link };
+                });
+
+                // Capture Screenshot of the element
+                const shotPath = `reports/screenshots/lg_promo_${i}_${dateStr}.png`;
+                await card.screenshot({ path: shotPath });
+
+                promoItems.push({
+                    title: textData.title,
+                    description: textData.desc,
+                    link: textData.link,
+                    screenshot: shotPath
+                });
+
+            } catch (e) {
+                console.log(`LG Promo ${i} capture failed: ${e.message}`);
+            }
+        }
+
+        data.promotions = promoItems;
+        console.log(`LG: Successfully captured ${data.promotions.length} detailed promotions.`);
+
 
         // Screenshot Promo
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');

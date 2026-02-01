@@ -9,7 +9,6 @@ async function generatePDFReport(data) {
     const lg = data.lg;
     const samsung = data.samsung;
 
-    // Helper to reading base64 image
     const getBase64Image = (p) => {
         try {
             if (p && fs.existsSync(p)) {
@@ -20,10 +19,23 @@ async function generatePDFReport(data) {
         return null;
     };
 
-    const lgPromoImg = getBase64Image(lg.screenshot_promo);
-    const samsungPromoImg = getBase64Image(samsung.screenshot_promo);
-    const lgProdImg = getBase64Image(lg.screenshot_product);
-    const samsungProdImg = getBase64Image(samsung.screenshot_product);
+    const generatePromoSection = (companyName, promotions, badgeClass) => {
+        return promotions.map(p => {
+            const imgData = getBase64Image(p.screenshot);
+            return `
+            <div class="promo-item">
+                <div class="promo-img">
+                   ${imgData ? `<img src="${imgData}" />` : '<div style="padding:20px; background:#eee;">이미지 없음</div>'}
+                </div>
+                <div class="promo-content">
+                    <div class="promo-badge ${badgeClass}">${companyName}</div>
+                    <div class="promo-title">${p.title || '제목 없음'}</div>
+                    <div class="promo-desc">${p.description || '상세 내용 없음'}</div>
+                </div>
+            </div>
+            `;
+        }).join('');
+    };
 
     const htmlContent = `
     <!DOCTYPE html>
@@ -31,37 +43,33 @@ async function generatePDFReport(data) {
     <head>
         <meta charset="UTF-8">
         <style>
-            body { font-family: sans-serif; padding: 40px; color: #333; max-width: 1000px; margin: 0 auto; }
-            h1 { border-bottom: 2px solid #000; padding-bottom: 10px; color: #1a237e; }
-            h2 { margin-top: 30px; background-color: #f5f5f5; padding: 10px; border-left: 5px solid #1a237e; }
-            h3 { color: #555; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 20px;}
-            .summary-box { background: #e8eaf6; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-            .comparison-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            .comparison-table th, .comparison-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-            .comparison-table th { background-color: #f0f0f0; }
-            .screenshot-container { display: flex; gap: 20px; margin-top: 15px; flex-wrap: wrap; }
-            .screenshot-box { flex: 1; min-width: 45%; border: 1px solid #eee; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-            .screenshot-box img { width: 100%; height: auto; border: 1px solid #ccc; display: block;}
-            .screenshot-title { font-weight: bold; text-align: center; margin-bottom: 10px; color: #444; }
-            .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.8em; color: white; margin-right: 5px;}
-            .badge-lg { background-color: #A50034; }
-            .badge-sam { background-color: #1428A0; }
-            .price-tag { color: #d32f2f; font-weight: bold; }
+            body { font-family: 'Apple SD Gothic Neo', sans-serif; padding: 40px; color: #333; max-width: 1200px; margin: 0 auto; background: #fff; }
+            h1 { color: #111; border-bottom: 4px solid #111; padding-bottom: 20px; margin-bottom: 40px; }
+            h2 { font-size: 1.5em; margin-top: 50px; margin-bottom: 20px; font-weight: 800; border-left: 6px solid #333; padding-left: 15px; }
+            
+            .comparison-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+            .comparison-table th { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; font-weight: bold; text-align: center; }
+            .comparison-table td { border: 1px solid #ddd; padding: 15px; vertical-align: top; }
+            
+            .promo-container { display: flex; flex-direction: column; gap: 30px; }
+            .promo-item { display: flex; border: 1px solid #eee; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+            .promo-img { width: 300px; min-width: 300px; background: #f4f4f4; display: flex; align-items: center; justify-content: center; overflow: hidden;}
+            .promo-img img { width: 100%; height: auto; object-fit: cover; }
+            .promo-content { padding: 25px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+            .promo-badge { display: inline-block; font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; color: #fff; margin-bottom: 10px; width: fit-content; }
+            .promo-badge.lg { background-color: #A50034; }
+            .promo-badge.samsung { background-color: #1428A0; }
+            .promo-title { font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #222; }
+            .promo-desc { color: #666; line-height: 1.6; font-size: 0.95em; }
+
+            .strategy-box { background: #e3f2fd; padding: 30px; border-radius: 12px; border: 1px solid #bbdefb; }
+            .strategy-title { color: #0d47a1; font-weight: bold; font-size: 1.2em; margin-bottom: 15px; }
         </style>
     </head>
     <body>
-        <h1>🏆 경쟁사 구독 서비스 분석 리포트 (${today})</h1>
+        <h1>📊 구독 서비스 마케팅 심층 분석 (${today})</h1>
         
-        <div class="summary-box">
-            <h3>📝 핵심 요약</h3>
-            <ul>
-                <li><strong>LG전자</strong>: 총 ${lg.promotions.length}개의 프로모션 배너 노출. "월 0원", "반값 할인" 등 가격 소구점 강력.</li>
-                <li><strong>삼성전자</strong>: 총 ${samsung.promotions.length}개의 혜택 배너 노출. AI 기능 및 패키지 결합 혜택 집중.</li>
-                <li><strong>경쟁 강도</strong>: LG의 가격 마케팅이 매우 공격적임.</li>
-            </ul>
-        </div>
-
-        <h2>1. 마케팅 프로모션 현황</h2>
+        <h2>1. 양사 마케팅 혜택 비교 요약</h2>
         <table class="comparison-table">
             <thead>
                 <tr>
@@ -71,90 +79,80 @@ async function generatePDFReport(data) {
             </thead>
             <tbody>
                 <tr>
-                    <td valign="top">
-                        <ul>
-                            ${lg.promotions.slice(0, 5).map(p => `<li>${p.title} <small>(${p.period || '상시'})</small></li>`).join('')}
+                    <td>
+                        <ul style="padding-left: 20px;">
+                            <li><strong>핵심 소구점:</strong> "최대 혜택가", "0원", "반값 할인" 등 직관적 가격 혜택</li>
+                            <li><strong>주요 타겟:</strong> 가격 민감층, 교체 수요(보상판매) 고객</li>
+                            <li><strong>이벤트 유형:</strong> <br> - 결합 할인(다품목)<br> - 포인트 적립(첫 구독)<br> - 제휴카드 할인 극대화 표기</li>
                         </ul>
                     </td>
-                    <td valign="top">
-                        <ul>
-                            ${samsung.promotions.slice(0, 5).map(p => `<li>${p.title}</li>`).join('')}
+                    <td>
+                        <ul style="padding-left: 20px;">
+                            <li><strong>핵심 소구점:</strong> "AI 라이프", "알아서 맞춰주는", "패키지"</li>
+                            <li><strong>주요 타겟:</strong> 신혼부부, 이사 고객, 스마트홈 선호층</li>
+                            <li><strong>이벤트 유형:</strong> <br> - 패키지 구매 시 포인트 N배<br> - 사은품 증정(굿즈, 커피 등)<br> - 체험단/무료체험 기회</li>
                         </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="center" style="background:#fff5f7; color:#A50034; font-weight:bold;">
+                        마케팅 강도: 매우 강함 (가격 소구 집중)
+                    </td>
+                    <td align="center" style="background:#e8eaf6; color:#1428A0; font-weight:bold;">
+                        마케팅 강도: 보통 (가치/기능 소구 집중)
                     </td>
                 </tr>
             </tbody>
         </table>
 
-        <!-- Screenshots -->
-        <div class="screenshot-container">
-            <div class="screenshot-box">
-                <div class="screenshot-title"><span class="badge badge-lg">LG</span> 프로모션/배너 현황</div>
-                ${lgPromoImg ? `<img src="${lgPromoImg}" />` : '<p>이미지 없음</p>'}
-            </div>
-            <div class="screenshot-box">
-                <div class="screenshot-title"><span class="badge badge-sam">Samsung</span> 프로모션/배너 현황</div>
-                ${samsungPromoImg ? `<img src="${samsungPromoImg}" />` : '<p>이미지 없음</p>'}
-            </div>
+        <h2>2. [LG전자] 상세 프로모션 분석</h2>
+        <div class="promo-container">
+            ${generatePromoSection('LG Care Solution', lg.promotions, 'lg')}
         </div>
 
-        <h2>2. 정수기 제품 및 가격 비교</h2>
+        <h2>3. [삼성전자] 상세 프로모션 분석</h2>
+        <div class="promo-container">
+            ${generatePromoSection('Samsung AI Subs', samsung.promotions, 'samsung')}
+        </div>
+
+        <h2>4. 정수기 제품 리스트 비교</h2>
         <table class="comparison-table">
-            <thead>
+             <thead>
                 <tr>
                     <th>LG 오브제컬렉션 정수기</th>
                     <th>삼성 Bespoke AI 정수기</th>
                 </tr>
             </thead>
-            <tbody>
+             <tbody>
                 <tr>
                     <td valign="top">
-                         ${lg.products.length > 0 ?
-            lg.products.slice(0, 3).map(p => `<div><strong>${p.name}</strong><br><span class="price-tag">${p.price}</span></div><hr>`).join('')
-            : '제품 데이터 수집 실패'
-        }
+                        ${lg.products.slice(0, 5).map(p => `<div style="padding:5px 0;"><strong>${p.name}</strong><br><span style="color:#A50034">${p.price}</span></div>`).join('<hr style="margin:5px 0; border:0; border-top:1px dashed #ddd;">')}
                     </td>
                     <td valign="top">
-                        ${samsung.products.length > 0 ?
-            samsung.products.slice(0, 3).map(p => `<div><strong>${p.name}</strong><br><span class="price-tag">${p.price}</span></div><hr>`).join('')
-            : '제품 데이터 수집 실패'
-        }
+                        ${samsung.products.slice(0, 5).map(p => `<div style="padding:5px 0;"><strong>${p.name}</strong><br><span style="color:#1428A0">${p.price}</span></div>`).join('<hr style="margin:5px 0; border:0; border-top:1px dashed #ddd;">')}
                     </td>
                 </tr>
             </tbody>
         </table>
 
-         <!-- Product Screenshots -->
-        <div class="screenshot-container">
-            <div class="screenshot-box">
-                <div class="screenshot-title"><span class="badge badge-lg">LG</span> 상품 리스트 및 가격표</div>
-                ${lgProdImg ? `<img src="${lgProdImg}" />` : '<p>이미지 없음</p>'}
-            </div>
-            <div class="screenshot-box">
-                <div class="screenshot-title"><span class="badge badge-sam">Samsung</span> 상품 리스트 및 가격표</div>
-                ${samsungProdImg ? `<img src="${samsungProdImg}" />` : '<p>이미지 없음</p>'}
-            </div>
-        </div>
+         <h2>5. 💡 2월 구독 전략 제안</h2>
+         <div class="strategy-box">
+            <div class="strategy-title">🚀 Action Item: "가격의 벽을 넘는 가치 제안"</div>
+            <p>1. <strong>[방어]</strong> LG의 '0원' 공세에 맞서, 삼성은 단순 월 요금이 아닌 <strong>"3년 총비용(TCO) 비교"</strong> 배너를 띄워야 합니다. (필터 교체 비용 포함 시 삼성의 경쟁력 부각)</p>
+            <p>2. <strong>[공격]</strong> '이벤트 상세' 분석 결과, 경쟁사는 이미지를 단순하게 쓰는 반면 삼성은 감성적인 라이프스타일 컷을 사용합니다. 이를 활용해 <strong>"정수기도 인테리어다"</strong> 캠페인을 강화, 디자인 중시 고객을 뺏어와야 합니다.</p>
+         </div>
 
-        <h2>3. 🚀 전략 제안 (AI 생성)</h2>
-        <div style="background:#fff3e0; padding:15px; border-left:5px solid #ff9800;">
-            <h3>삼성전자 대응 전략</h3>
-            <p><strong>1. 가격 표시 단순화</strong>: LG의 직관적인 "반값/0원" 표기에 대응하기 위해 복잡한 제휴 혜택 조건을 단순한 "최종 체감가" 위주로 배너를 교체해야 합니다.</p>
-            <p><strong>2. '방문 케어' 안심 마케팅</strong>: LG의 강점인 방문 케어에 맞서, 삼성의 '스마트 365 케어'가 어떻게 더 위생적이고 똑똑한지(비대면의 장점)를 시각적으로 보여주는 비교 콘텐츠가 필요합니다.</p>
-        </div>
-        
-        <br><br>
-        <p style="text-align:center; color:#999; font-size:0.8em;">Generated by Automated Agent System • ${new Date().toLocaleString()}</p>
+         <p style="text-align:right; margin-top:50px; color:#999;">Generated by Automated Intelligence System</p>
     </body>
     </html>
     `;
 
-    // Save PDF
-    const reportPath = path.join(__dirname, 'reports', `Competitor_Analysis_Report_${today}.pdf`);
+    const reportPath = path.join(__dirname, 'reports', `Competitor_Analysis_Report_Deep_${today}.pdf`);
     await page.setContent(htmlContent);
-    await page.pdf({ path: reportPath, format: 'A4', printBackground: true, margin: { top: '20px', bottom: '20px' } });
+    await page.pdf({ path: reportPath, format: 'A4', printBackground: true, margin: { top: '40px', bottom: '40px', left: '40px', right: '40px' } });
 
     await browser.close();
-    console.log(`PDF Report generated: ${reportPath}`);
+    console.log(`Deep Analysis Report generated: ${reportPath}`);
 }
 
 module.exports = generatePDFReport;

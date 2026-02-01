@@ -40,21 +40,44 @@ async function scrapeSamsung() {
             data.screenshot_promo = promoShotPath;
         } catch (e) { }
 
-        // Scrape Cards from Swipers or Lists
-        const promotions = await page.evaluate(() => {
-            const items = [];
-            // Target swiper slides in the benefit section
-            document.querySelectorAll('.swiper-slide, .benefit-list li').forEach(el => {
-                // Try multiple text locations
-                const title = el.querySelector('.tit, strong, .txt-title')?.innerText?.trim();
-                const desc = el.querySelector('.desc, .txt-desc')?.innerText?.trim();
+        // Capture Individual Promo Screenshots
+        const promoItems = [];
+        // Identify valid promo containers (swiper slides or list items)
+        const promoCards = await page.$$('.swiper-slide .card, .benefit-list li, .swiper-slide img');
 
-                if (title) items.push({ title, subtitle: desc || '' });
-            });
-            return items;
-        });
-        data.promotions = promotions.slice(0, 10); // Take top 10 unique
-        console.log(`Samsung: Found ${data.promotions.length} promotions.`);
+        console.log(`Samsung: Found ${promoCards.length} potential promo cards. Processing top 5...`);
+
+        for (let i = 0; i < Math.min(promoCards.length, 5); i++) {
+            const card = promoCards[i];
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
+            try {
+                await card.scrollIntoViewIfNeeded();
+                await page.waitForTimeout(500);
+
+                const textData = await card.evaluate(el => {
+                    // Try to find text context either inside or near the image
+                    const container = el.closest('div') || el;
+                    const title = container.innerText.split('\n')[0] || 'Image Banner';
+                    const desc = container.innerText.replace(title, '').trim().substring(0, 100);
+                    return { title, desc };
+                });
+
+                const shotPath = `reports/screenshots/samsung_promo_${i}_${dateStr}.png`;
+                await card.screenshot({ path: shotPath });
+
+                promoItems.push({
+                    title: textData.title,
+                    description: textData.desc,
+                    screenshot: shotPath
+                });
+
+            } catch (e) {
+                console.log(`Samsung Promo ${i} capture failed: ${e.message}`);
+            }
+        }
+        data.promotions = promoItems;
+        console.log(`Samsung: Successfully captured ${data.promotions.length} detailed promotions.`);
 
         // --- PRODUCTS ---
         console.log('Navigating to Samsung Kitchen Subs...');
