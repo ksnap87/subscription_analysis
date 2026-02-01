@@ -50,7 +50,7 @@ jobs:
         body: |
           오늘의 경쟁사 분석 리포트가 생성되었습니다.
           첨부파일을 확인해주세요.
-        attachments: reports/*.txt
+        attachments: reports/*.pdf
 
     - name: Commit/Push Data (Optional)
       run: |

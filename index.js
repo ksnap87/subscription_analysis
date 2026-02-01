@@ -25,11 +25,15 @@ async function main() {
 
     console.log('Data collection complete. Saved to data/ directory.');
 
-    // Basic Analysis (Placeholder for now, will expand based on data shape)
-    console.log('LG Promotions:', lgData.promotions.length);
-    console.log('LG Products:', lgData.products.length);
-    console.log('Samsung Promotions:', samsungData.promotions.length);
-    console.log('Samsung Products:', samsungData.products.length);
+    // Generate PDF Report
+    const generatePDFReport = require('./report_generator');
+    console.log('Generating PDF Report...');
+    await generatePDFReport({
+        lg: lgData,
+        samsung: samsungData
+    });
+
+    console.log('All tasks completed successfully.');
 }
 
 main();

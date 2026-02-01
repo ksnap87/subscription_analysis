@@ -21,6 +21,12 @@ async function scrapeSamsung() {
         await page.goto('https://www.samsung.com/sec/ai-subs/', { waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(2000);
 
+        // Capture Promo Screenshot
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const promoShotPath = `reports/screenshots/samsung_promo_${dateStr}.png`;
+        await page.screenshot({ path: promoShotPath, fullPage: false });
+        data.screenshot_promo = promoShotPath;
+
         // Grab existing promo data which seemed to work partially
         const promotions = await page.evaluate(() => {
             const items = [];
@@ -58,6 +64,11 @@ async function scrapeSamsung() {
 
         // Wait for product cards
         await page.waitForSelector('.pf-product-card, .product-card, [class*="product-card"]', { timeout: 5000 }).catch(() => console.log('No cards selector found'));
+
+        // Product List Screenshot
+        const productShotPath = `reports/screenshots/samsung_product_${dateStr}.png`;
+        await page.screenshot({ path: productShotPath, fullPage: false });
+        data.screenshot_product = productShotPath;
 
         const products = await page.evaluate(() => {
             const items = [];

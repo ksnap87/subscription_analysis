@@ -23,6 +23,12 @@ async function scrapeLG() {
         await page.goto('https://www.lge.co.kr/benefits', { waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(3000);
 
+        // Capture Promotion Screenshot
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const promoShotPath = `reports/screenshots/lg_promo_${dateStr}.png`;
+        await page.screenshot({ path: promoShotPath, fullPage: false });
+        data.screenshot_promo = promoShotPath;
+
         // Try multiple potential selectors for benefit cards
         const promotionElements = await page.evaluate(() => {
             const items = [];
@@ -60,6 +66,11 @@ async function scrapeLG() {
             window.scrollBy(0, 1000);
             await new Promise(r => setTimeout(r, 1000));
         });
+
+        // Capture Product Screenshot
+        const productShotPath = `reports/screenshots/lg_product_${dateStr}.png`;
+        await page.screenshot({ path: productShotPath, fullPage: false });
+        data.screenshot_product = productShotPath;
 
         // LG Product List
         const products = await page.evaluate(() => {
