@@ -1,14 +1,60 @@
 {
   "lg": {
-    "timestamp": "2026-02-01T06:32:08.175Z",
+    "timestamp": "2026-02-01T14:25:14.746Z",
     "site": "LG Care Solutions",
-    "promotions": [],
-    "products": []
+    "promotions": [
+      {
+        "title": "LG전자 멤버십",
+        "description": "",
+        "link": "/benefits/newMembership",
+        "screenshot": "reports/screenshots/lg_promo_0_20260201.png"
+      },
+      {
+        "title": "신규 회원 혜택",
+        "description": "",
+        "link": "/benefits/exhibitions/detail-PE00554004",
+        "screenshot": "reports/screenshots/lg_promo_1_20260201.png"
+      },
+      {
+        "title": "카드 혜택",
+        "description": "",
+        "link": "/benefits/card-discount",
+        "screenshot": "reports/screenshots/lg_promo_2_20260201.png"
+      },
+      {
+        "title": "다품목 혜택",
+        "description": "",
+        "link": "/benefits/exhibitions/multiple-products",
+        "screenshot": "reports/screenshots/lg_promo_3_20260201.png"
+      },
+      {
+        "title": "제휴 혜택",
+        "description": "",
+        "link": "/benefits/affiliate-channel",
+        "screenshot": "reports/screenshots/lg_promo_4_20260201.png"
+      }
+    ],
+    "products": [],
+    "screenshot_promo": "reports/screenshots/lg_promo_20260201.png",
+    "screenshot_product": "reports/screenshots/lg_product_20260201.png"
   },
   "samsung": {
-    "timestamp": "2026-02-01T06:32:08.173Z",
+    "timestamp": "2026-02-01T14:25:14.745Z",
     "site": "Samsung AI Subscription",
-    "promotions": [],
-    "products": []
+    "promotions": [
+      {
+        "title": "Image Banner",
+        "description": "",
+        "screenshot": "reports/screenshots/samsung_promo_3_20260201.png"
+      },
+      {
+        "title": "Image Banner",
+        "description": "",
+        "screenshot": "reports/screenshots/samsung_promo_4_20260201.png"
+      }
+    ],
+    "products": [],
+    "screenshot_promo": "reports/screenshots/samsung_promo_20260201.png",
+    "screenshot_product": "reports/screenshots/samsung_product_20260201.png"
   }
 }
