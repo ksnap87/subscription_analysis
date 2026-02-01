@@ -2,14 +2,14 @@ const { chromium } = require('playwright');
 
 async function scrapeLG() {
     const browser = await chromium.launch({ headless: true });
-    // Use a desktop viewport to ensure standard layout
+    // Use desktop viewport
     const context = await browser.newContext({
         viewport: { width: 1920, height: 1080 },
         userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
     const page = await context.newPage();
 
-    console.log('Starting LG Scraper...');
+    console.log('Starting LG Scraper (Deep Dive Mode)...');
     const data = {
         timestamp: new Date().toISOString(),
         site: 'LG Care Solutions',
@@ -20,92 +20,128 @@ async function scrapeLG() {
     try {
         // --- PROMOTIONS ---
         console.log('Navigating to LG Benefits...');
-        await page.goto('https://www.lge.co.kr/benefits', { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(3000);
+        await page.goto('https://www.lge.co.kr/benefits', { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForTimeout(5000); // Visuals load slowly
 
-        // Capture Promotion Screenshot
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const promoShotPath = `reports/screenshots/lg_promo_${dateStr}.png`;
-        await page.screenshot({ path: promoShotPath, fullPage: false });
-        data.screenshot_promo = promoShotPath;
+        // 1. Main Hero Carousel Text (often contains strongest text)
+        const heroPromos = await page.evaluate(() => {
+            const slides = document.querySelectorAll('.ui_carousel_track .ui_carousel_slide');
+            const data = [];
+            slides.forEach(slide => {
+                const text = slide.innerText.split('\n').filter(t => t.trim().length > 0).join(' ');
+                if (text) data.push({ title: text, type: 'Hero' });
+            });
+            return data;
+        });
 
-        // Try multiple potential selectors for benefit cards
-        const promotionElements = await page.evaluate(() => {
+        // 2. Event Cards
+        const cardPromos = await page.evaluate(() => {
             const items = [];
-            // Common wrapper patterns
-            const cards = document.querySelectorAll('.board-list-box li, .event_list li, .list-item');
+            // Target specific card classes identified
+            const cards = document.querySelectorAll('.benefit-card-link, .event-card, a[href^="/benefits/"]');
 
             cards.forEach(card => {
-                const title = card.querySelector('.tit, .title, .subject, strong')?.innerText?.trim() || '';
-                const date = card.querySelector('.date, .period, .data')?.innerText?.trim() || '';
-                const link = card.querySelector('a')?.href || '';
-
-                if (title) {
-                    items.push({ title, period: date, link });
+                // Heuristic: grab the largest text block as title
+                const textBlocks = card.innerText.split('\n').filter(t => t.trim().length > 0);
+                if (textBlocks.length > 0) {
+                    const title = textBlocks[0]; // Usually first line is title or status
+                    const sub = textBlocks.slice(1).join(' ');
+                    items.push({ title, subtitle: sub, type: 'Card' });
                 }
             });
             return items;
         });
 
-        // If empty, try fallback to getting any "event" looking links
-        if (promotionElements.length === 0) {
-            console.log('LG: No promotions found with standard selectors. Trying fallback.');
-            // Fallback logic could go here
-        }
-        data.promotions = promotionElements;
+        // Merge and Dedupe
+        const allPromos = [...heroPromos, ...cardPromos];
+        // Unique by title
+        data.promotions = Array.from(new Map(allPromos.map(item => [item.title, item])).values());
+
+        console.log(`LG: Found ${data.promotions.length} promotions.`);
+
+        // Screenshot Promo
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const promoShotPath = `reports/screenshots/lg_promo_${dateStr}.png`;
+        try {
+            await page.screenshot({ path: promoShotPath, fullPage: false });
+            data.screenshot_promo = promoShotPath;
+        } catch (e) { console.log('LG Promo screenshot failed'); }
 
 
         // --- PRODUCTS ---
         console.log('Navigating to LG Water Purifiers...');
         await page.goto('https://www.lge.co.kr/care-solutions/water-purifiers', { waitUntil: 'domcontentloaded' });
 
-        // Scroll down to trigger lazy load
+        // Dynamic Scroll for Lazy Loading
         await page.evaluate(async () => {
-            window.scrollBy(0, 1000);
-            await new Promise(r => setTimeout(r, 1000));
-            window.scrollBy(0, 1000);
-            await new Promise(r => setTimeout(r, 1000));
+            const distance = 500;
+            const delay = 400;
+            while (document.scrollingElement.scrollTop + window.innerHeight < document.scrollingElement.scrollHeight) {
+                document.scrollingElement.scrollBy(0, distance);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                if (document.scrollingElement.scrollTop > 4000) break; // Limit scroll to avoid infinite
+            }
         });
+        await page.waitForTimeout(2000);
 
-        // Capture Product Screenshot
+        // Screenshot Product
         const productShotPath = `reports/screenshots/lg_product_${dateStr}.png`;
         await page.screenshot({ path: productShotPath, fullPage: false });
         data.screenshot_product = productShotPath;
 
-        // LG Product List
+        // Product List Extraction
         const products = await page.evaluate(() => {
             const items = [];
-            // Look for cards with pricing info
-            // Strategy: Find elements with specific price classes or patterns
-            const cards = document.querySelectorAll('div[class*="item"], li[class*="item"]');
+            // Generic product card container
+            // Attempt to find containers that have "won" or "price" in them
+            const potentialCards = document.querySelectorAll('div, li');
 
-            cards.forEach(card => {
-                // Must have a name and a price to be valid
-                const nameHelper = card.querySelector('.name, .tit, p[class*="name"]');
-                const priceHelper = card.querySelector('.price, .total-price, .monthly-cost');
+            potentialCards.forEach(card => {
+                // Filter: must be a "product card" wrapper. hard to identify classlessly.
+                // Use specific keys found in debug: 'maximum_benefit_price'
+                const priceEl = card.querySelector('.maximum_benefit_price, .total-price');
+                const nameEl = card.querySelector('.name, .tit');
 
-                // Sometimes price is in a 'strong' tag inside a div
-
-                if (nameHelper && nameHelper.innerText.includes('정수기')) {
-                    const name = nameHelper.innerText.trim();
-                    const price = priceHelper ? priceHelper.innerText.trim() :
-                        (card.innerText.match(/월\s*[\d,]+\s*원/)?.[0] || '가격 정보 없음');
-
-                    // Get specs if available
-                    const specs = Array.from(card.querySelectorAll('ul.spec li, .info li')).map(li => li.innerText);
-
-                    items.push({
-                        name,
-                        price,
-                        specs
-                    });
+                // Avoid duplicates by checking if THIS card is the direct key holder
+                if (priceEl && nameEl) {
+                    const name = nameEl.innerText.trim();
+                    if (name.includes('정수기')) { // Filter for water purifiers
+                        const priceText = priceEl.innerText.replace(/\n/g, '').trim();
+                        // Check if we already have this product (simple check)
+                        const exists = items.find(i => i.name === name);
+                        if (!exists) {
+                            items.push({ name, price: priceText });
+                        }
+                    }
                 }
             });
-            return items;
+            // Fallback: search for list items with text content patterns if structure fails
+            return items.length > 0 ? items : [];
         });
 
-        console.log(`LG: Found ${products.length} products.`);
-        data.products = products;
+        // If specific logic failed, try a very generic "text dump" fallback for analysis
+        if (products.length === 0) {
+            console.log('LG: Product specific extraction failed. Attempting generic text search.');
+            const textProducts = await page.evaluate(() => {
+                const hits = [];
+                const elements = document.querySelectorAll('*');
+                elements.forEach(el => {
+                    const txt = el.innerText || '';
+                    if (txt.includes('정수기') && txt.match(/[0-9,]+원/)) {
+                        // Very loose match, might get noise, but better than 0
+                        if (el.childElementCount === 0 && el.tagName !== 'SCRIPT') { // Leaf nodes
+                            hits.push({ name: 'Detected Text', price: txt.substring(0, 50) + '...' });
+                        }
+                    }
+                });
+                return hits.slice(0, 5); // Limit noise
+            });
+            data.products = textProducts;
+        } else {
+            data.products = products;
+        }
+
+        console.log(`LG: Found ${data.products.length} products.`);
 
     } catch (error) {
         console.error('Error scraping LG:', error);
