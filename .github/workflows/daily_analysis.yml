@@ -45,7 +45,7 @@ jobs:
         username: ${{ secrets.MAIL_USERNAME }}
         password: ${{ secrets.MAIL_PASSWORD }}
         subject: "Daily Competitor Analysis Report - ${{ github.event.repository.name }}"
-        to: executive@samsung.com
+        to: ksnap87@gmail.com
         from: Automation System
         body: |
           오늘의 경쟁사 분석 리포트가 생성되었습니다.
